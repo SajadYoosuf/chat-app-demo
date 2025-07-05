@@ -1,28 +1,34 @@
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter_chat_demo/constants/constants.dart';
-import 'package:flutter_chat_demo/models/models.dart';
+import 'package:flutter_chat_demo/constants/firestore_constants.dart';
+import 'package:flutter_chat_demo/models/message_chat.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Provider for chat-related functionality:
+/// sending and streaming text messages only.
 class ChatProvider {
   final SharedPreferences prefs;
   final FirebaseFirestore firebaseFirestore;
-  final FirebaseStorage firebaseStorage;
 
-  ChatProvider({required this.firebaseFirestore, required this.prefs, required this.firebaseStorage});
+  ChatProvider({
+    required this.firebaseFirestore,
+    required this.prefs,
+  });
 
-  UploadTask uploadFile(File image, String fileName) {
-    Reference reference = firebaseStorage.ref().child(fileName);
-    UploadTask uploadTask = reference.putFile(image);
-    return uploadTask;
+  /// Updates Firestore document with provided data.
+  Future<void> updateDataFirestore(String collectionPath, String docPath,
+      Map<String, dynamic> dataNeedUpdate) async {
+    try {
+      await firebaseFirestore
+          .collection(collectionPath)
+          .doc(docPath)
+          .update(dataNeedUpdate);
+    } catch (e) {
+      print('Error updating Firestore data: $e');
+      rethrow;
+    }
   }
 
-  Future<void> updateDataFirestore(String collectionPath, String docPath, Map<String, dynamic> dataNeedUpdate) {
-    return firebaseFirestore.collection(collectionPath).doc(docPath).update(dataNeedUpdate);
-  }
-
+  /// Returns a stream of chat messages from Firestore with limit.
   Stream<QuerySnapshot> getChatStream(String groupChatId, int limit) {
     return firebaseFirestore
         .collection(FirestoreConstants.pathMessageCollection)
@@ -33,7 +39,9 @@ class ChatProvider {
         .snapshots();
   }
 
-  void sendMessage(String content, int type, String groupChatId, String currentUserId, String peerId) {
+  /// Sends a new text message to Firestore in a transaction.
+  Future<void> sendMessage(String content, int type, String groupChatId,
+      String currentUserId, String peerId) async {
     final documentReference = firebaseFirestore
         .collection(FirestoreConstants.pathMessageCollection)
         .doc(groupChatId)
@@ -45,15 +53,16 @@ class ChatProvider {
       idTo: peerId,
       timestamp: DateTime.now().millisecondsSinceEpoch.toString(),
       content: content,
-      type: type,
+      type: type, // you can use 0 for text messages if you want
     );
 
-    FirebaseFirestore.instance.runTransaction((transaction) async {
-      transaction.set(
-        documentReference,
-        messageChat.toJson(),
-      );
-    });
+    try {
+      await firebaseFirestore.runTransaction((transaction) async {
+        transaction.set(documentReference, messageChat.toJson());
+      });
+    } catch (e) {
+      print('Error sending message: $e');
+      rethrow;
+    }
   }
 }
-

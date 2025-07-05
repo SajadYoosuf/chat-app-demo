@@ -6,6 +6,8 @@ import 'package:flutter_chat_demo/models/models.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Authentication provider handles user sign-in/out with Google and Firebase,
+/// stores user data locally, and maintains auth state.
 enum Status {
   uninitialized,
   authenticated,
@@ -21,6 +23,8 @@ class AuthProvider extends ChangeNotifier {
   final FirebaseFirestore firebaseFirestore;
   final SharedPreferences prefs;
 
+  Status _status = Status.uninitialized;
+
   AuthProvider({
     required this.firebaseAuth,
     required this.googleSignIn,
@@ -28,89 +32,111 @@ class AuthProvider extends ChangeNotifier {
     required this.firebaseFirestore,
   });
 
-  Status _status = Status.uninitialized;
-
   Status get status => _status;
 
   String? get userFirebaseId => prefs.getString(FirestoreConstants.id);
 
+  /// Checks if user is already signed in.
   Future<bool> isLoggedIn() async {
-    bool isLoggedIn = await googleSignIn.isSignedIn();
-    if (isLoggedIn && prefs.getString(FirestoreConstants.id)?.isNotEmpty == true) {
-      return true;
-    } else {
-      return false;
-    }
+    final isSignedIn = await googleSignIn.isSignedIn();
+    final hasId = prefs.getString(FirestoreConstants.id)?.isNotEmpty == true;
+    return isSignedIn && hasId;
   }
 
+  /// Handles Google Sign-In flow and updates Firestore and local prefs.
   Future<bool> handleSignIn() async {
     _status = Status.authenticating;
     notifyListeners();
 
-    final googleUser = await googleSignIn.signIn();
-    if (googleUser == null) {
-      _status = Status.authenticateCanceled;
+    try {
+      final googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        _status = Status.authenticateCanceled;
+        notifyListeners();
+        return false;
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential =
+          await firebaseAuth.signInWithCredential(credential);
+      final firebaseUser = userCredential.user;
+      if (firebaseUser == null) {
+        _status = Status.authenticateError;
+        notifyListeners();
+        return false;
+      }
+
+      // Check if user data exists in Firestore
+      final result = await firebaseFirestore
+          .collection(FirestoreConstants.pathUserCollection)
+          .where(FirestoreConstants.id, isEqualTo: firebaseUser.uid)
+          .get();
+
+      if (result.docs.isEmpty) {
+        // New user — create Firestore doc
+        await firebaseFirestore
+            .collection(FirestoreConstants.pathUserCollection)
+            .doc(firebaseUser.uid)
+            .set({
+          FirestoreConstants.nickname: firebaseUser.displayName,
+          FirestoreConstants.photoUrl: firebaseUser.photoURL,
+          FirestoreConstants.id: firebaseUser.uid,
+          FirestoreConstants.createdAt:
+              DateTime.now().millisecondsSinceEpoch.toString(),
+          FirestoreConstants.chattingWith: null,
+        });
+
+        // Save to local prefs
+        await _saveUserToPrefs(
+            firebaseUser.uid, firebaseUser.displayName, firebaseUser.photoURL);
+      } else {
+        // Existing user — load data from Firestore doc
+        final userChat = UserChat.fromDocument(result.docs.first);
+        await _saveUserToPrefs(
+            userChat.id, userChat.nickname, userChat.photoUrl,
+            aboutMe: userChat.aboutMe);
+      }
+
+      _status = Status.authenticated;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print('🛑 GoogleSignIn failed: $e');
+      _status = Status.authenticateException;
       notifyListeners();
       return false;
     }
+  }
 
-    final googleAuth = await googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
+  /// Saves user data to shared preferences
+  Future<void> _saveUserToPrefs(String id, String? nickname, String? photoUrl,
+      {String aboutMe = ""}) async {
+    await prefs.setString(FirestoreConstants.id, id);
+    await prefs.setString(FirestoreConstants.nickname, nickname ?? "");
+    await prefs.setString(FirestoreConstants.photoUrl, photoUrl ?? "");
+    await prefs.setString(FirestoreConstants.aboutMe, aboutMe);
+  }
 
-    final firebaseUser = (await firebaseAuth.signInWithCredential(credential)).user;
-    if (firebaseUser == null) {
-      _status = Status.authenticateError;
-      notifyListeners();
-      return false;
-    }
-
-    final result = await firebaseFirestore
-        .collection(FirestoreConstants.pathUserCollection)
-        .where(FirestoreConstants.id, isEqualTo: firebaseUser.uid)
-        .get();
-    final documents = result.docs;
-    if (documents.length == 0) {
-      // Writing data to server because here is a new user
-      firebaseFirestore.collection(FirestoreConstants.pathUserCollection).doc(firebaseUser.uid).set({
-        FirestoreConstants.nickname: firebaseUser.displayName,
-        FirestoreConstants.photoUrl: firebaseUser.photoURL,
-        FirestoreConstants.id: firebaseUser.uid,
-        FirestoreConstants.createdAt: DateTime.now().millisecondsSinceEpoch.toString(),
-        FirestoreConstants.chattingWith: null
-      });
-
-      // Write data to local storage
-      User? currentUser = firebaseUser;
-      await prefs.setString(FirestoreConstants.id, currentUser.uid);
-      await prefs.setString(FirestoreConstants.nickname, currentUser.displayName ?? "");
-      await prefs.setString(FirestoreConstants.photoUrl, currentUser.photoURL ?? "");
-    } else {
-      // Already sign up, just get data from firestore
-      final documentSnapshot = documents.first;
-      final userChat = UserChat.fromDocument(documentSnapshot);
-      // Write data to local
-      await prefs.setString(FirestoreConstants.id, userChat.id);
-      await prefs.setString(FirestoreConstants.nickname, userChat.nickname);
-      await prefs.setString(FirestoreConstants.photoUrl, userChat.photoUrl);
-      await prefs.setString(FirestoreConstants.aboutMe, userChat.aboutMe);
-    }
-    _status = Status.authenticated;
+  /// Signs out user from Firebase and Google.
+  Future<void> handleSignOut() async {
+    _status = Status.uninitialized;
     notifyListeners();
-    return true;
+
+    await firebaseAuth.signOut();
+    await googleSignIn.disconnect();
+    await googleSignIn.signOut();
+
+    // Optionally clear preferences if needed
+    await prefs.clear();
   }
 
   void handleException() {
     _status = Status.authenticateException;
     notifyListeners();
-  }
-
-  Future<void> handleSignOut() async {
-    _status = Status.uninitialized;
-    await firebaseAuth.signOut();
-    await googleSignIn.disconnect();
-    await googleSignIn.signOut();
   }
 }

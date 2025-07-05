@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+// import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_demo/constants/constants.dart';
 import 'package:flutter_chat_demo/models/models.dart';
@@ -10,8 +10,8 @@ import 'package:flutter_chat_demo/pages/pages.dart';
 import 'package:flutter_chat_demo/providers/providers.dart';
 import 'package:flutter_chat_demo/utils/utils.dart';
 import 'package:flutter_chat_demo/widgets/widgets.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+// import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
@@ -22,8 +22,8 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
-  final _firebaseMessaging = FirebaseMessaging.instance;
-  final _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  // final _firebaseMessaging = FirebaseMessaging.instance;
+  // final _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   final _listScrollController = ScrollController();
 
   int _limit = 20;
@@ -50,49 +50,54 @@ class HomePageState extends State<HomePage> {
     if (_authProvider.userFirebaseId?.isNotEmpty == true) {
       _currentUserId = _authProvider.userFirebaseId!;
     } else {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => LoginPage()),
-        (_) => false,
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => LoginPage()),
+          (_) => false,
+        );
+      });
     }
-    _registerNotification();
-    _configLocalNotification();
+    // _registerNotification();
+    // _configLocalNotification();
     _listScrollController.addListener(_scrollListener);
   }
 
-  void _registerNotification() {
-    _firebaseMessaging.requestPermission();
+  // void _registerNotification() {
+  //   _firebaseMessaging.requestPermission();
 
-    FirebaseMessaging.onMessage.listen((message) {
-      print('onMessage: $message');
-      if (message.notification != null) {
-        _showNotification(message.notification!);
-      }
-      return;
-    });
+  //   FirebaseMessaging.onMessage.listen((message) {
+  //     print('onMessage: $message');
+  //     if (message.notification != null) {
+  //       _showNotification(message.notification!);
+  //     }
+  //     return;
+  //   });
 
-    _firebaseMessaging.getToken().then((token) {
-      print('push token: $token');
-      if (token != null) {
-        _homeProvider.updateDataFirestore(FirestoreConstants.pathUserCollection, _currentUserId, {'pushToken': token});
-      }
-    }).catchError((err) {
-      Fluttertoast.showToast(msg: err.message.toString());
-    });
-  }
+  //   _firebaseMessaging.getToken().then((token) {
+  //     print('push token: $token');
+  //     if (token != null) {
+  //       _homeProvider.updateDataFirestore(FirestoreConstants.pathUserCollection,
+  //           _currentUserId, {'pushToken': token});
+  //     }
+  //   }).catchError((err) {
+  //     Fluttertoast.showToast(msg: err.message.toString());
+  //   });
+  // }
 
-  void _configLocalNotification() {
-    final initializationSettingsAndroid = AndroidInitializationSettings('app_icon');
-    final initializationSettingsIOS = DarwinInitializationSettings();
-    final initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
-      iOS: initializationSettingsIOS,
-    );
-    _flutterLocalNotificationsPlugin.initialize(initializationSettings);
-  }
+  // void _configLocalNotification() {
+  //   final initializationSettingsAndroid =
+  //       AndroidInitializationSettings('app_icon');
+  //   final initializationSettingsIOS = DarwinInitializationSettings();
+  //   final initializationSettings = InitializationSettings(
+  //     android: initializationSettingsAndroid,
+  //     iOS: initializationSettingsIOS,
+  //   );
+  //   _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  // }
 
   void _scrollListener() {
-    if (_listScrollController.offset >= _listScrollController.position.maxScrollExtent &&
+    if (_listScrollController.offset >=
+            _listScrollController.position.maxScrollExtent &&
         !_listScrollController.position.outOfRange) {
       setState(() {
         _limit += _limitIncrement;
@@ -104,35 +109,38 @@ class HomePageState extends State<HomePage> {
     if (choice.title == 'Log out') {
       _handleSignOut();
     } else {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsPage()));
+      Navigator.push(
+          context, MaterialPageRoute(builder: (_) => SettingsPage()));
     }
   }
 
-  void _showNotification(RemoteNotification remoteNotification) async {
-    final androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      Platform.isAndroid ? 'com.dfa.flutterchatdemo' : 'com.duytq.flutterchatdemo',
-      'Flutter chat demo',
-      playSound: true,
-      enableVibration: true,
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    final iOSPlatformChannelSpecifics = DarwinNotificationDetails();
-    final platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-      iOS: iOSPlatformChannelSpecifics,
-    );
+  // void _showNotification(RemoteNotification remoteNotification) async {
+  //   final androidPlatformChannelSpecifics = AndroidNotificationDetails(
+  //     Platform.isAndroid
+  //         ? 'com.dfa.flutterchatdemo'
+  //         : 'com.duytq.flutterchatdemo',
+  //     'Flutter chat demo',
+  //     playSound: true,
+  //     enableVibration: true,
+  //     importance: Importance.max,
+  //     priority: Priority.high,
+  //   );
+  //   final iOSPlatformChannelSpecifics = DarwinNotificationDetails();
+  //   final platformChannelSpecifics = NotificationDetails(
+  //     android: androidPlatformChannelSpecifics,
+  //     iOS: iOSPlatformChannelSpecifics,
+  //   );
 
-    print(remoteNotification);
+  //   print(remoteNotification);
 
-    await _flutterLocalNotificationsPlugin.show(
-      0,
-      remoteNotification.title,
-      remoteNotification.body,
-      platformChannelSpecifics,
-      payload: null,
-    );
-  }
+  //   // await _flutterLocalNotificationsPlugin.show(
+  //   //   0,
+  //   //   remoteNotification.title,
+  //   //   remoteNotification.body,
+  //   //   platformChannelSpecifics,
+  //   //   payload: null,
+  //   // );
+  // }
 
   Future<void> _handleSignOut() async {
     await _authProvider.handleSignOut();
@@ -171,7 +179,8 @@ class HomePageState extends State<HomePage> {
                         if ((snapshot.data?.docs.length ?? 0) > 0) {
                           return ListView.builder(
                             padding: EdgeInsets.all(10),
-                            itemBuilder: (_, index) => _buildItem(snapshot.data?.docs[index]),
+                            itemBuilder: (_, index) =>
+                                _buildItem(snapshot.data?.docs[index]),
                             itemCount: snapshot.data?.docs.length,
                             controller: _listScrollController,
                           );
@@ -235,7 +244,8 @@ class HomePageState extends State<HomePage> {
               },
               decoration: InputDecoration.collapsed(
                 hintText: 'Search by nickname (type exactly case sensitive)',
-                hintStyle: TextStyle(fontSize: 13, color: ColorConstants.greyColor),
+                hintStyle:
+                    TextStyle(fontSize: 13, color: ColorConstants.greyColor),
               ),
               style: TextStyle(fontSize: 13),
             ),
@@ -252,7 +262,8 @@ class HomePageState extends State<HomePage> {
                           _textSearch = "";
                         });
                       },
-                      child: Icon(Icons.clear_rounded, color: ColorConstants.greyColor, size: 20))
+                      child: Icon(Icons.clear_rounded,
+                          color: ColorConstants.greyColor, size: 20))
                   : SizedBox.shrink();
             },
           ),
@@ -321,8 +332,10 @@ class HomePageState extends State<HomePage> {
                               child: Center(
                                 child: CircularProgressIndicator(
                                   color: ColorConstants.themeColor,
-                                  value: loadingProgress.expectedTotalBytes != null
-                                      ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                  value: loadingProgress.expectedTotalBytes !=
+                                          null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
                                       : null,
                                 ),
                               ),
@@ -350,7 +363,8 @@ class HomePageState extends State<HomePage> {
                           child: Text(
                             'Nickname: ${userChat.nickname}',
                             maxLines: 1,
-                            style: TextStyle(color: ColorConstants.primaryColor),
+                            style:
+                                TextStyle(color: ColorConstants.primaryColor),
                           ),
                           alignment: Alignment.centerLeft,
                           margin: EdgeInsets.fromLTRB(10, 0, 0, 5),
@@ -359,7 +373,8 @@ class HomePageState extends State<HomePage> {
                           child: Text(
                             'About me: ${userChat.aboutMe}',
                             maxLines: 1,
-                            style: TextStyle(color: ColorConstants.primaryColor),
+                            style:
+                                TextStyle(color: ColorConstants.primaryColor),
                           ),
                           alignment: Alignment.centerLeft,
                           margin: EdgeInsets.fromLTRB(10, 0, 0, 0),
@@ -389,7 +404,8 @@ class HomePageState extends State<HomePage> {
               );
             },
             style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.all<Color>(ColorConstants.greyColor2),
+              backgroundColor:
+                  WidgetStateProperty.all<Color>(ColorConstants.greyColor2),
               shape: WidgetStateProperty.all<OutlinedBorder>(
                 RoundedRectangleBorder(
                   borderRadius: BorderRadius.all(Radius.circular(10)),

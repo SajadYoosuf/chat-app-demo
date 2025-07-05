@@ -68,7 +68,6 @@ class MyApp extends StatelessWidget {
           create: (_) => ChatProvider(
             prefs: this.prefs,
             firebaseFirestore: this._firebaseFirestore,
-            firebaseStorage: this._firebaseStorage,
           ),
         ),
       ],

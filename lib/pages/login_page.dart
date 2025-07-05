@@ -39,12 +39,11 @@ class LoginPage extends StatelessWidget {
               onPressed: () async {
                 authProvider.handleSignIn().then((isSuccess) {
                   if (isSuccess) {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => HomePage(),
-                      ),
-                    );
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => HomePage()),
+                      );
+                    });
                   }
                 }).catchError((error, stackTrace) {
                   Fluttertoast.showToast(msg: error.toString());
@@ -58,7 +57,8 @@ class LoginPage extends StatelessWidget {
               style: ButtonStyle(
                 backgroundColor: WidgetStateProperty.resolveWith<Color>(
                   (Set<WidgetState> states) {
-                    if (states.contains(WidgetState.pressed)) return Color(0xffdd4b39).withValues(alpha: 0.8);
+                    if (states.contains(WidgetState.pressed))
+                      return Color(0xffdd4b39).withValues(alpha: 0.8);
                     return Color(0xffdd4b39);
                   },
                 ),
@@ -71,7 +71,9 @@ class LoginPage extends StatelessWidget {
           ),
           // Loading
           Positioned(
-            child: authProvider.status == Status.authenticating ? LoadingView() : SizedBox.shrink(),
+            child: authProvider.status == Status.authenticating
+                ? LoadingView()
+                : SizedBox.shrink(),
           ),
         ],
       ),
